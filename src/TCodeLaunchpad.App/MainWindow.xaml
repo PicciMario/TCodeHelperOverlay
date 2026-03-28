@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="TCodeLaunchpad.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="TCode Launchpad"
+    WindowStyle="None"
+    ResizeMode="NoResize"
+    AllowsTransparency="True"
+    Background="#01000000"
+    ShowInTaskbar="False"
+    Topmost="True"
+    Width="900"
+    Height="560">
+    <Grid Background="#66000000">
+        <StackPanel
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Margin="0,18,24,0"
+            IsHitTestVisible="False">
+            <TextBlock
+                Text="TCode Helper"
+                FontSize="14"
+                FontWeight="SemiBold"
+                Foreground="#99E6EEF7"
+                HorizontalAlignment="Right" />
+            <TextBlock
+                Text="by Mario"
+                FontSize="11"
+                Foreground="#77E6EEF7"
+                HorizontalAlignment="Right" />
+        </StackPanel>
+
+        <Border
+            x:Name="SearchHost"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Width="860"
+            Margin="24"
+            CornerRadius="14"
+            BorderBrush="#33FFFFFF"
+            BorderThickness="1"
+            Background="#CC10151C"
+            Padding="20">
+            <TextBox
+                x:Name="SearchBox"
+                TextChanged="SearchBox_TextChanged"
+                PreviewKeyDown="SearchBox_KeyDown"
+                GotKeyboardFocus="SearchBox_GotKeyboardFocus"
+                Height="42"
+                HorizontalAlignment="Stretch"
+                VerticalContentAlignment="Center"
+                FontSize="16"
+                Padding="12,6"
+                BorderBrush="#335A6A7A"
+                Background="#DD0D131A"
+                Foreground="#F0F5FB"
+                ToolTip="Type code, name, or keyword" />
+        </Border>
+
+        <Border
+            x:Name="ResultsHost"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Width="860"
+            Margin="24,76,24,24"
+            CornerRadius="14"
+            BorderBrush="#33FFFFFF"
+            BorderThickness="1"
+            Background="#CC10151C"
+            Padding="12"
+            Visibility="Collapsed"
+            Height="420">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <ListBox
+                    x:Name="ResultsList"
+                    Grid.Column="0"
+                    PreviewKeyDown="ResultsList_KeyDown"
+                    SelectionChanged="ResultsList_SelectionChanged"
+                    BorderThickness="0"
+                    Background="Transparent"
+                    ScrollViewer.VerticalScrollBarVisibility="Auto"
+                    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                    Foreground="#F2F4F8">
+                    <ListBox.Resources>
+                        <Style x:Key="SlimThumbStyle" TargetType="Thumb">
+                            <Setter Property="Background" Value="#88CFE4FF" />
+                            <Setter Property="BorderBrush" Value="#55FFFFFF" />
+                            <Setter Property="BorderThickness" Value="1" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="Thumb">
+                                        <Border
+                                            Background="{TemplateBinding Background}"
+                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                            CornerRadius="4" />
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+
+                        <Style TargetType="ScrollBar">
+                            <Setter Property="Width" Value="8" />
+                            <Setter Property="Margin" Value="4,2,2,2" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ScrollBar">
+                                        <Grid Width="{TemplateBinding Width}">
+                                            <Border
+                                                Background="#22000000"
+                                                CornerRadius="4" />
+                                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                                <Track.DecreaseRepeatButton>
+                                                    <RepeatButton
+                                                        Command="ScrollBar.PageUpCommand"
+                                                        Opacity="0"
+                                                        IsHitTestVisible="False" />
+                                                </Track.DecreaseRepeatButton>
+                                                <Track.Thumb>
+                                                    <Thumb Style="{StaticResource SlimThumbStyle}" />
+                                                </Track.Thumb>
+                                                <Track.IncreaseRepeatButton>
+                                                    <RepeatButton
+                                                        Command="ScrollBar.PageDownCommand"
+                                                        Opacity="0"
+                                                        IsHitTestVisible="False" />
+                                                </Track.IncreaseRepeatButton>
+                                            </Track>
+                                        </Grid>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Style.Triggers>
+                                <Trigger Property="Orientation" Value="Horizontal">
+                                    <Setter Property="Height" Value="8" />
+                                    <Setter Property="Width" Value="Auto" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ListBox.Resources>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="4" VerticalAlignment="Center">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock
+                                    Grid.Column="0"
+                                    Text="{Binding Code}"
+                                    FontWeight="SemiBold"
+                                    FontFamily="Consolas"
+                                    Margin="0,0,8,0"
+                                    Foreground="#DDE7F2" />
+                                <StackPanel Grid.Column="1" Orientation="Vertical">
+                                    <TextBlock
+                                        Text="{Binding Description}"
+                                        TextWrapping="Wrap"
+                                        Foreground="#F2F4F8" />
+                                    <TextBlock
+                                        Text="{Binding Module}"
+                                        FontSize="12"
+                                        Foreground="#A5B3C2" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <Border Grid.Column="1" Background="#335A6A7A" Width="1" HorizontalAlignment="Center" />
+
+                <TextBox
+                    x:Name="DetailsTextBox"
+                    Grid.Column="2"
+                    PreviewKeyDown="DetailsTextBox_KeyDown"
+                    IsReadOnly="True"
+                    TextWrapping="Wrap"
+                    AcceptsReturn="True"
+                    VerticalScrollBarVisibility="Auto"
+                    HorizontalScrollBarVisibility="Disabled"
+                    BorderThickness="0"
+                    Background="Transparent"
+                    Foreground="#E6EEF7"
+                    FontSize="13"
+                    Padding="10,6" />
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
