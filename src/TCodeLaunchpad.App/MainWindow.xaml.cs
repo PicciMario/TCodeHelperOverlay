@@ -226,6 +226,7 @@ public partial class MainWindow : Window
         {
             _rows.Clear();
             DetailsTextBox.Text = string.Empty;
+            DebugTextBox.Text = string.Empty;
             ResultsHost.Visibility = Visibility.Collapsed;
             return;
         }
@@ -234,7 +235,7 @@ public partial class MainWindow : Window
 
         var results = _searchService.Search(query)
             .Take(MaxVisibleResults)
-            .Select(ResultRowViewModel.FromSearchResult)
+            .Select(result => ResultRowViewModel.FromSearchResult(result, query))
             .ToList();
 
         _rows.Clear();
@@ -252,6 +253,7 @@ public partial class MainWindow : Window
         else
         {
             DetailsTextBox.Text = string.Empty;
+            DebugTextBox.Text = string.Empty;
         }
     }
 
@@ -323,9 +325,11 @@ public partial class MainWindow : Window
             return;
         }
 
-        System.Windows.Clipboard.SetText(row.Code);
+        var clipboardValue = $"/n{row.Code}";
+        System.Windows.Clipboard.SetText(clipboardValue);
 
         HideLauncher();
+        _trayIconService.ShowToast($"Code {row.Code} copied in the clipboard");
     }
 
     private void ConfigureWindow()
@@ -352,6 +356,7 @@ public partial class MainWindow : Window
         if (ResultsList.SelectedItem is not ResultRowViewModel selected)
         {
             DetailsTextBox.Text = string.Empty;
+            DebugTextBox.Text = string.Empty;
             return;
         }
 
@@ -360,6 +365,8 @@ public partial class MainWindow : Window
             $"Module: {selected.Module}{Environment.NewLine}" +
             $"Keywords: {selected.Keywords}{Environment.NewLine}{Environment.NewLine}" +
             selected.LongDescription;
+
+        DebugTextBox.Text = $"Debug ({selected.FilterText}): {selected.ScoreDebugText}";
     }
 
     private void TryEnableBlur()

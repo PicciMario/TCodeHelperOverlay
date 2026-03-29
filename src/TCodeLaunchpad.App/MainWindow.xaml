@@ -176,20 +176,43 @@
 
                 <Border Grid.Column="1" Background="#335A6A7A" Width="1" HorizontalAlignment="Center" />
 
-                <TextBox
-                    x:Name="DetailsTextBox"
-                    Grid.Column="2"
-                    PreviewKeyDown="DetailsTextBox_KeyDown"
-                    IsReadOnly="True"
-                    TextWrapping="Wrap"
-                    AcceptsReturn="True"
-                    VerticalScrollBarVisibility="Auto"
-                    HorizontalScrollBarVisibility="Disabled"
-                    BorderThickness="0"
-                    Background="Transparent"
-                    Foreground="#E6EEF7"
-                    FontSize="13"
-                    Padding="10,6" />
+                <Grid Grid.Column="2">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBox
+                        x:Name="DetailsTextBox"
+                        Grid.Row="0"
+                        PreviewKeyDown="DetailsTextBox_KeyDown"
+                        IsReadOnly="True"
+                        TextWrapping="Wrap"
+                        AcceptsReturn="True"
+                        VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Disabled"
+                        BorderThickness="0"
+                        Background="Transparent"
+                        Foreground="#E6EEF7"
+                        FontSize="13"
+                        Padding="10,6" />
+
+                    <TextBox
+                        x:Name="DebugTextBox"
+                        Grid.Row="1"
+                        PreviewKeyDown="DetailsTextBox_KeyDown"
+                        IsReadOnly="True"
+                        TextWrapping="Wrap"
+                        AcceptsReturn="True"
+                        VerticalScrollBarVisibility="Disabled"
+                        HorizontalScrollBarVisibility="Disabled"
+                        BorderThickness="0"
+                        Background="Transparent"
+                        Foreground="#788391"
+                        FontSize="11"
+                        Padding="10,4,10,8"
+                        Margin="0,4,0,0" />
+                </Grid>
             </Grid>
         </Border>
     </Grid>

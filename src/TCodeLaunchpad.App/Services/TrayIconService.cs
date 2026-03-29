@@ -27,6 +27,14 @@ public sealed class TrayIconService : IDisposable
         _notifyIcon.DoubleClick += (_, _) => openLauncher();
     }
 
+    public void ShowToast(string message)
+    {
+        _notifyIcon.BalloonTipTitle = "TCode Launchpad";
+        _notifyIcon.BalloonTipText = message;
+        _notifyIcon.BalloonTipIcon = ToolTipIcon.Info;
+        _notifyIcon.ShowBalloonTip(1800);
+    }
+
     public void Dispose()
     {
         _notifyIcon.Visible = false;

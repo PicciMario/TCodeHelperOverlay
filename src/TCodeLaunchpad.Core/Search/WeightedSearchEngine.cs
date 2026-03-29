@@ -44,24 +44,30 @@ public sealed class WeightedSearchEngine : IWeightedSearchEngine
             var prefixHit = code.StartsWith(normalizedQuery, StringComparison.Ordinal)
                 || name.StartsWith(normalizedQuery, StringComparison.Ordinal);
 
-            var score = 0;
+            var codePrefixScore = 0;
+            var codeContainsScore = 0;
+            var namePrefixScore = 0;
+            var nameContainsScore = 0;
+            var keywordExactScore = 0;
+            var keywordContainsScore = 0;
+            var longDescriptionContainsScore = 0;
 
             if (code.StartsWith(normalizedQuery, StringComparison.Ordinal))
             {
-                score += _options.CodePrefixWeight;
+                codePrefixScore += _options.CodePrefixWeight;
             }
             else if (code.Contains(normalizedQuery, StringComparison.Ordinal))
             {
-                score += _options.CodeContainsWeight;
+                codeContainsScore += _options.CodeContainsWeight;
             }
 
             if (name.StartsWith(normalizedQuery, StringComparison.Ordinal))
             {
-                score += _options.NamePrefixWeight;
+                namePrefixScore += _options.NamePrefixWeight;
             }
             else if (name.Contains(normalizedQuery, StringComparison.Ordinal))
             {
-                score += _options.NameContainsWeight;
+                nameContainsScore += _options.NameContainsWeight;
             }
 
             foreach (var token in queryTokens)
@@ -73,22 +79,33 @@ public sealed class WeightedSearchEngine : IWeightedSearchEngine
 
                 if (TokenExists(keywords, token))
                 {
-                    score += _options.KeywordExactWeight;
+                    keywordExactScore += _options.KeywordExactWeight;
                 }
                 else if (keywords.Contains(token, StringComparison.Ordinal))
                 {
-                    score += _options.KeywordContainsWeight;
+                    keywordContainsScore += _options.KeywordContainsWeight;
                 }
 
                 if (longDescr.Contains(token, StringComparison.Ordinal))
                 {
-                    score += _options.LongDescriptionContainsWeight;
+                    longDescriptionContainsScore += _options.LongDescriptionContainsWeight;
                 }
             }
 
+            var breakdown = new SearchScoreBreakdown(
+                codePrefixScore,
+                codeContainsScore,
+                namePrefixScore,
+                nameContainsScore,
+                keywordExactScore,
+                keywordContainsScore,
+                longDescriptionContainsScore);
+
+            var score = breakdown.Total;
+
             if (score > 0)
             {
-                results.Add(new SearchResult(entry, score, prefixHit));
+                results.Add(new SearchResult(entry, score, prefixHit, breakdown));
             }
         }
 
