@@ -62,11 +62,14 @@ To run the published executable directly:
 
 ## Data Source
 
-- `data.json` in workspace root
-- Runtime resolution checks:
-1. current working directory (`data.json`)
-1. executable folder (`data.json`)
-1. workspace root (development fallback)
+- Remote source:
+1. `https://raw.githubusercontent.com/PicciMario/TCodeHelperOverlay/refs/heads/master/data.json`
+- Local user cache path (Windows best-practice, user-scoped):
+1. `%LOCALAPPDATA%\TCodeLaunchpad\Cache\data.json`
+- Download policy:
+1. cache age is checked every time the launcher UI is shown
+1. if cache is older than 24 hours, the app attempts a re-download
+1. if download fails, existing cached file is still used
 
 ## Notes
 
@@ -74,12 +77,13 @@ To run the published executable directly:
 - If `Ctrl+Space` is already in use by another app, the launcher still runs from tray menu.
 - Press `Enter` to copy selected SAP code to clipboard.
 - If blur is unavailable on the OS, the app falls back to a translucent overlay.
+- Bottom-right debug text shows cache file full path and cache age.
+- Click the cache age text to force an immediate refresh attempt.
 
 ## Troubleshooting
 
 - If double-clicking the exe appears to do nothing, check the Windows system tray: the app starts hidden by design.
 - Double-clicking the exe again now activates the already-running instance.
-- Ensure `data.json` is either:
-1. in the same folder as `TCodeLaunchpad.App.exe`
-1. in your current working directory when launching from terminal
+- Ensure internet access is available on first launch so the cache can be created.
+- Cached data is stored in `%LOCALAPPDATA%\TCodeLaunchpad\Cache\data.json`.
 - If `Ctrl+Space` does not open the launcher, the hotkey is likely reserved by another app. Use the tray icon menu (`Open`).

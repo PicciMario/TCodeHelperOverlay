@@ -4,6 +4,18 @@ using System.Windows.Interop;
 
 namespace TCodeLaunchpad.App.Services;
 
+public sealed class HotkeyPressedEventArgs : EventArgs
+{
+    public HotkeyPressedEventArgs(int cursorX, int cursorY)
+    {
+        CursorX = cursorX;
+        CursorY = cursorY;
+    }
+
+    public int CursorX { get; }
+    public int CursorY { get; }
+}
+
 public sealed class GlobalHotkeyService : IDisposable
 {
     private const int WmHotkey = 0x0312;
@@ -15,7 +27,7 @@ public sealed class GlobalHotkeyService : IDisposable
     private readonly HwndSource? _source;
     private bool _isRegistered;
 
-    public event EventHandler? HotkeyPressed;
+    public event EventHandler<HotkeyPressedEventArgs>? HotkeyPressed;
 
     public GlobalHotkeyService(Window window, int hotkeyId = 42)
     {
@@ -46,7 +58,8 @@ public sealed class GlobalHotkeyService : IDisposable
     {
         if (msg == WmHotkey && wParam.ToInt32() == _hotkeyId)
         {
-            HotkeyPressed?.Invoke(this, EventArgs.Empty);
+            var cursor = GetCursorScreenPosition();
+            HotkeyPressed?.Invoke(this, new HotkeyPressedEventArgs(cursor.X, cursor.Y));
             handled = true;
             return IntPtr.Zero;
         }
@@ -59,4 +72,19 @@ public sealed class GlobalHotkeyService : IDisposable
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+
+    [DllImport("user32.dll")]
+    private static extern bool GetCursorPos(out NativePoint lpPoint);
+
+    private static NativePoint GetCursorScreenPosition()
+    {
+        return GetCursorPos(out var cursorPoint) ? cursorPoint : default;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private readonly struct NativePoint
+    {
+        public int X { get; init; }
+        public int Y { get; init; }
+    }
 }

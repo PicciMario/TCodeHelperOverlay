@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.IO;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Documents;
 using System.Windows.Threading;
+using WinForms = System.Windows.Forms;
+using DrawingPoint = System.Drawing.Point;
 using TCodeLaunchpad.App.Services;
 using TCodeLaunchpad.App.ViewModels;
 using TCodeLaunchpad.Core.Data;
@@ -17,11 +19,13 @@ public partial class MainWindow : Window
     private const int MaxVisibleResults = 15;
 
     private readonly ObservableCollection<ResultRowViewModel> _rows = new();
+    private readonly DataCacheService _dataCacheService;
     private readonly TransactionSearchService _searchService;
     private GlobalHotkeyService? _hotkeyService;
     private readonly TrayIconService _trayIconService;
     private readonly DispatcherTimer _searchDebounce;
     private bool _isExiting;
+    private bool _isRefreshingCache;
 
     public MainWindow()
     {
@@ -32,9 +36,10 @@ public partial class MainWindow : Window
         ResultsList.ItemsSource = _rows;
 
         var searchOptions = new SearchOptions();
-        var dataPath = ResolveDataPath();
-        _searchService = new TransactionSearchService(new JsonTransactionRepository(), new WeightedSearchEngine(searchOptions), dataPath);
-        _searchService.Reload();
+        _dataCacheService = new DataCacheService();
+        _searchService = new TransactionSearchService(new JsonTransactionRepository(), new WeightedSearchEngine(searchOptions), _dataCacheService.CacheFilePath);
+        CachePathRun.Text = _dataCacheService.CacheFilePath;
+        CacheAgeRun.Text = "loading...";
 
         _searchDebounce = new DispatcherTimer
         {
@@ -49,7 +54,7 @@ public partial class MainWindow : Window
         SourceInitialized += (_, _) =>
         {
             _hotkeyService = new GlobalHotkeyService(this);
-            _hotkeyService.HotkeyPressed += (_, _) => Dispatcher.Invoke(ToggleLauncher);
+            _hotkeyService.HotkeyPressed += (_, args) => Dispatcher.Invoke(() => ToggleLauncher(args.CursorX, args.CursorY));
             _hotkeyService.TryRegisterCtrlSpace(out _);
         };
 
@@ -59,6 +64,7 @@ public partial class MainWindow : Window
             () => Dispatcher.Invoke(ReloadData),
             () => Dispatcher.Invoke(ExitApplication));
 
+        Loaded += async (_, _) => await RefreshCacheIfNeededAsync(forceRefresh: false);
         Closing += MainWindow_Closing;
     }
 
@@ -69,7 +75,7 @@ public partial class MainWindow : Window
 
     public void ShowLauncherFromActivation()
     {
-        ShowLauncher();
+        ShowLauncherAtCursor(WinForms.Control.MousePosition);
     }
 
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
@@ -87,14 +93,21 @@ public partial class MainWindow : Window
 
     private void ShowLauncher()
     {
+        ShowLauncherAtCursor(WinForms.Control.MousePosition);
+    }
+
+    private void ShowLauncherAtCursor(DrawingPoint cursorPosition)
+    {
+        ConfigureWindow(cursorPosition);
         Show();
         Activate();
         Focus();
         SearchBox.Focus();
         SearchBox.SelectAll();
+        _ = RefreshCacheIfNeededAsync(forceRefresh: false);
     }
 
-    private void ToggleLauncher()
+    private void ToggleLauncher(int cursorX, int cursorY)
     {
         if (IsVisible)
         {
@@ -102,13 +115,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        ShowLauncher();
+        ShowLauncherAtCursor(new DrawingPoint(cursorX, cursorY));
     }
 
     private void ReloadData()
     {
-        _searchService.Reload();
-        ApplySearch(SearchBox.Text);
+        _ = RefreshCacheIfNeededAsync(forceRefresh: true);
     }
 
     private void ExitApplication()
@@ -334,12 +346,20 @@ public partial class MainWindow : Window
 
     private void ConfigureWindow()
     {
+        ConfigureWindow(WinForms.Control.MousePosition);
+    }
+
+    private void ConfigureWindow(DrawingPoint cursorPosition)
+    {
+        var targetScreen = WinForms.Screen.FromPoint(cursorPosition);
+        var bounds = targetScreen.Bounds;
+
         Topmost = true;
         WindowState = WindowState.Normal;
-        Left = SystemParameters.VirtualScreenLeft;
-        Top = SystemParameters.VirtualScreenTop;
-        Width = SystemParameters.VirtualScreenWidth;
-        Height = SystemParameters.VirtualScreenHeight;
+        Left = bounds.Left;
+        Top = bounds.Top;
+        Width = bounds.Width;
+        Height = bounds.Height;
 
         var searchTop = Math.Max(24, Height / 3);
         SearchHost.Margin = new Thickness(24, searchTop, 24, 24);
@@ -374,25 +394,80 @@ public partial class MainWindow : Window
         BlurService.TryEnableBlur(this);
     }
 
-    private static string ResolveDataPath()
+    private async Task RefreshCacheIfNeededAsync(bool forceRefresh)
     {
-        var candidates = new[]
+        if (_isRefreshingCache)
         {
-            Path.Combine(Directory.GetCurrentDirectory(), "data.json"),
-            Path.Combine(AppContext.BaseDirectory, "data.json"),
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "data.json"),
-            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "data.json")
-        };
-
-        foreach (var path in candidates)
-        {
-            var fullPath = Path.GetFullPath(path);
-            if (File.Exists(fullPath))
-            {
-                return fullPath;
-            }
+            return;
         }
 
-        throw new FileNotFoundException("Unable to locate data.json. Place it next to the executable or in the workspace root.");
+        _isRefreshingCache = true;
+        try
+        {
+            var cacheStatus = await _dataCacheService.EnsureFreshAsync(forceRefresh);
+
+            if (cacheStatus.DownloadSucceeded || _searchService.Count == 0)
+            {
+                _searchService.Reload();
+                ApplySearch(SearchBox.Text);
+            }
+
+            UpdateCacheDebugInfo(cacheStatus);
+        }
+        catch
+        {
+            // Preserve existing data if refresh fails.
+            CacheAgeRun.Text = "unavailable";
+        }
+        finally
+        {
+            _isRefreshingCache = false;
+        }
+    }
+
+    private void UpdateCacheDebugInfo(DataCacheStatus cacheStatus)
+    {
+        CachePathRun.Text = cacheStatus.CacheFilePath;
+        CacheAgeRun.Text = FormatAge(cacheStatus.Age);
+    }
+
+    private static string FormatAge(TimeSpan age)
+    {
+        if (age.TotalDays >= 1)
+        {
+            return $"{(int)age.TotalDays}d {age.Hours}h";
+        }
+
+        if (age.TotalHours >= 1)
+        {
+            return $"{(int)age.TotalHours}h {age.Minutes}m";
+        }
+
+        if (age.TotalMinutes >= 1)
+        {
+            return $"{(int)age.TotalMinutes}m";
+        }
+
+        return $"{Math.Max(0, (int)age.TotalSeconds)}s";
+    }
+
+    private async void CacheAgeHyperlink_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Hyperlink hyperlink)
+        {
+            hyperlink.IsEnabled = false;
+        }
+
+        try
+        {
+            await RefreshCacheIfNeededAsync(forceRefresh: true);
+        }
+        finally
+        {
+            if (sender is Hyperlink enabledHyperlink)
+            {
+                enabledHyperlink.IsEnabled = true;
+            }
+        }
     }
 }

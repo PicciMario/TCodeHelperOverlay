@@ -215,5 +215,22 @@
                 </Grid>
             </Grid>
         </Border>
+
+        <TextBlock
+            HorizontalAlignment="Right"
+            VerticalAlignment="Bottom"
+            Margin="24"
+            Foreground="#88D4DEE8"
+            FontSize="10"
+            TextWrapping="Wrap"
+            TextAlignment="Right"
+            MaxWidth="760">
+            <Run Text="Cache: " />
+            <Run x:Name="CachePathRun" Text="(initializing...)" />
+            <Run Text=" | Age: " />
+            <Hyperlink Click="CacheAgeHyperlink_Click" ToolTip="Click to refresh now">
+                <Run x:Name="CacheAgeRun" Text="n/a" />
+            </Hyperlink>
+        </TextBlock>
     </Grid>
 </Window>
