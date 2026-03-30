@@ -34,7 +34,7 @@
                 Foreground="#D194FF94"
                 HorizontalAlignment="Right" />
             <TextBlock
-                Text="By Mario v0.2"
+                Text="By Mario v0.3.1"
                 FontFamily="Cascadia Mono,Consolas"
                 FontSize="10"
                 Foreground="#8A84D784"
