@@ -7,12 +7,20 @@
     WindowStyle="None"
     ResizeMode="NoResize"
     AllowsTransparency="True"
-    Background="#01000000"
+    Background="#00000000"
     ShowInTaskbar="False"
     Topmost="True"
     Width="900"
     Height="560">
-    <Grid Background="#66000000">
+    <Grid>
+        <Grid.Background>
+            <RadialGradientBrush GradientOrigin="0.5,0.35" Center="0.5,0.45" RadiusX="0.9" RadiusY="0.9">
+                <GradientStop Color="#9E133B13" Offset="0" />
+                <GradientStop Color="#7A092409" Offset="0.42" />
+                <GradientStop Color="#A0040904" Offset="1" />
+            </RadialGradientBrush>
+        </Grid.Background>
+
         <StackPanel
             HorizontalAlignment="Right"
             VerticalAlignment="Top"
@@ -21,13 +29,15 @@
             <TextBlock
                 Text="TCode Helper"
                 FontSize="14"
-                FontWeight="SemiBold"
-                Foreground="#99E6EEF7"
+                FontWeight="Bold"
+                FontFamily="Cascadia Mono,Consolas"
+                Foreground="#D194FF94"
                 HorizontalAlignment="Right" />
             <TextBlock
-                Text="by Mario"
-                FontSize="11"
-                Foreground="#77E6EEF7"
+                Text="By Mario v0.2"
+                FontFamily="Cascadia Mono,Consolas"
+                FontSize="10"
+                Foreground="#8A84D784"
                 HorizontalAlignment="Right" />
         </StackPanel>
 
@@ -37,10 +47,10 @@
             VerticalAlignment="Top"
             Width="860"
             Margin="24"
-            CornerRadius="14"
-            BorderBrush="#33FFFFFF"
+            CornerRadius="8"
+            BorderBrush="#7A6EE96E"
             BorderThickness="1"
-            Background="#CC10151C"
+            Background="#8A081708"
             Padding="20">
             <TextBox
                 x:Name="SearchBox"
@@ -51,10 +61,14 @@
                 HorizontalAlignment="Stretch"
                 VerticalContentAlignment="Center"
                 FontSize="16"
+                FontFamily="Cascadia Mono,Consolas"
                 Padding="12,6"
-                BorderBrush="#335A6A7A"
-                Background="#DD0D131A"
-                Foreground="#F0F5FB"
+                BorderBrush="#8A69E369"
+                BorderThickness="1"
+                Background="#D4041004"
+                CaretBrush="#E8A8FFA8"
+                SelectionBrush="#AA2A7D2A"
+                Foreground="#F3AEFFAE"
                 ToolTip="Type code, name, or keyword" />
         </Border>
 
@@ -64,10 +78,10 @@
             VerticalAlignment="Top"
             Width="860"
             Margin="24,76,24,24"
-            CornerRadius="14"
-            BorderBrush="#33FFFFFF"
+            CornerRadius="8"
+            BorderBrush="#7A6EE96E"
             BorderThickness="1"
-            Background="#CC10151C"
+            Background="#8A081708"
             Padding="12"
             Visibility="Collapsed"
             Height="420">
@@ -87,11 +101,19 @@
                     Background="Transparent"
                     ScrollViewer.VerticalScrollBarVisibility="Auto"
                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                    Foreground="#F2F4F8">
+                    Foreground="#F3AEFFAE"
+                    FontFamily="Cascadia Mono,Consolas">
                     <ListBox.Resources>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="BorderThickness" Value="0" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0,1" />
+                        </Style>
+
                         <Style x:Key="SlimThumbStyle" TargetType="Thumb">
-                            <Setter Property="Background" Value="#88CFE4FF" />
-                            <Setter Property="BorderBrush" Value="#55FFFFFF" />
+                            <Setter Property="Background" Value="#AA6FEB6F" />
+                            <Setter Property="BorderBrush" Value="#CC143114" />
                             <Setter Property="BorderThickness" Value="1" />
                             <Setter Property="Template">
                                 <Setter.Value>
@@ -114,7 +136,7 @@
                                     <ControlTemplate TargetType="ScrollBar">
                                         <Grid Width="{TemplateBinding Width}">
                                             <Border
-                                                Background="#22000000"
+                                                Background="#33030B03"
                                                 CornerRadius="4" />
                                             <Track x:Name="PART_Track" IsDirectionReversed="True">
                                                 <Track.DecreaseRepeatButton>
@@ -147,34 +169,61 @@
                     </ListBox.Resources>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Grid Margin="4" VerticalAlignment="Center">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="150" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock
-                                    Grid.Column="0"
-                                    Text="{Binding Code}"
-                                    FontWeight="SemiBold"
-                                    FontFamily="Consolas"
-                                    Margin="0,0,8,0"
-                                    Foreground="#DDE7F2" />
-                                <StackPanel Grid.Column="1" Orientation="Vertical">
+                            <Border
+                                x:Name="RowGlowBorder"
+                                Margin="4"
+                                Padding="4"
+                                CornerRadius="4"
+                                BorderThickness="1"
+                                BorderBrush="#00000000"
+                                Background="#00000000"
+                                Opacity="1">
+                                <Grid VerticalAlignment="Center">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="150" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
                                     <TextBlock
-                                        Text="{Binding Description}"
-                                        TextWrapping="Wrap"
-                                        Foreground="#F2F4F8" />
-                                    <TextBlock
-                                        Text="{Binding Module}"
-                                        FontSize="12"
-                                        Foreground="#A5B3C2" />
-                                </StackPanel>
-                            </Grid>
+                                        Grid.Column="0"
+                                        Text="{Binding Code}"
+                                        FontWeight="Bold"
+                                        FontFamily="Cascadia Mono,Consolas"
+                                        Margin="0,0,8,0"
+                                        Foreground="#F3BCFFBC" />
+                                    <StackPanel Grid.Column="1" Orientation="Vertical">
+                                        <TextBlock
+                                            Text="{Binding Description}"
+                                            TextWrapping="Wrap"
+                                            Foreground="#EBAAFFAA" />
+                                        <TextBlock
+                                            Text="{Binding Module}"
+                                            FontSize="12"
+                                            Foreground="#AD79CD79" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <DataTemplate.Triggers>
+                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsSelected}" Value="True">
+                                    <Setter TargetName="RowGlowBorder" Property="BorderBrush" Value="#FF7FFF7F" />
+                                    <Setter TargetName="RowGlowBorder" Property="Background" Value="#5A1D6B1D" />
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard Name="SelectionPulseStoryboard">
+                                            <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                <DoubleAnimation Storyboard.TargetName="RowGlowBorder" Storyboard.TargetProperty="Opacity" From="0.45" To="1" Duration="0:0:0.5" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <StopStoryboard BeginStoryboardName="SelectionPulseStoryboard" />
+                                    </DataTrigger.ExitActions>
+                                </DataTrigger>
+                            </DataTemplate.Triggers>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
 
-                <Border Grid.Column="1" Background="#335A6A7A" Width="1" HorizontalAlignment="Center" />
+                <Border Grid.Column="1" Background="#6662C762" Width="1" HorizontalAlignment="Center" />
 
                 <Grid Grid.Column="2">
                     <Grid.RowDefinitions>
@@ -193,7 +242,8 @@
                         HorizontalScrollBarVisibility="Disabled"
                         BorderThickness="0"
                         Background="Transparent"
-                        Foreground="#E6EEF7"
+                        Foreground="#EAAEFFAE"
+                        FontFamily="Cascadia Mono,Consolas"
                         FontSize="13"
                         Padding="10,6" />
 
@@ -208,7 +258,8 @@
                         HorizontalScrollBarVisibility="Disabled"
                         BorderThickness="0"
                         Background="Transparent"
-                        Foreground="#788391"
+                        Foreground="#B56DBE6D"
+                        FontFamily="Cascadia Mono,Consolas"
                         FontSize="11"
                         Padding="10,4,10,8"
                         Margin="0,4,0,0" />
@@ -216,19 +267,30 @@
             </Grid>
         </Border>
 
+        <Border IsHitTestVisible="False" Opacity="0.22">
+            <Border.Background>
+                <VisualBrush TileMode="Tile" Viewport="0,0,1,4" ViewportUnits="Absolute">
+                    <VisualBrush.Visual>
+                        <Rectangle Width="1" Height="4" Fill="#12000000" />
+                    </VisualBrush.Visual>
+                </VisualBrush>
+            </Border.Background>
+        </Border>
+
         <TextBlock
             HorizontalAlignment="Right"
             VerticalAlignment="Bottom"
             Margin="24"
-            Foreground="#88D4DEE8"
+            Foreground="#9E8DDB8D"
             FontSize="10"
+            FontFamily="Cascadia Mono,Consolas"
             TextWrapping="Wrap"
             TextAlignment="Right"
             MaxWidth="760">
             <Run Text="Cache: " />
             <Run x:Name="CachePathRun" Text="(initializing...)" />
             <Run Text=" | Age: " />
-            <Hyperlink Click="CacheAgeHyperlink_Click" ToolTip="Click to refresh now">
+            <Hyperlink Click="CacheAgeHyperlink_Click" ToolTip="Click to refresh now" Foreground="#D6A6FFA6">
                 <Run x:Name="CacheAgeRun" Text="n/a" />
             </Hyperlink>
         </TextBlock>
