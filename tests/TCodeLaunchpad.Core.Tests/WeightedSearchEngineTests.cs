@@ -8,9 +8,9 @@ public class WeightedSearchEngineTests
 {
     private readonly IReadOnlyList<TCodeEntry> _dataset = new[]
     {
-        new TCodeEntry("FB60", "Inserimento fatture passive", "fattura passiva inserimento", "Contabilizzazione fatture", "FI", null),
-        new TCodeEntry("AL08", "Gestione sessioni utente", "sessione utente login", "Monitorare sessioni aperte", "Basis", null),
-        new TCodeEntry("DB02", "Diagnostica database", "diagnostica database sql", "Spazio disco e performance", "Basis", null)
+        new TCodeEntry("FB60", "Inserimento fatture passive", "fattura passiva inserimento", "Contabilizzazione fatture", new ModuleInfo("FI", "Financial Accounting"), null),
+        new TCodeEntry("AL08", "Gestione sessioni utente", "sessione utente login", "Monitorare sessioni aperte", new ModuleInfo("BASIS", "BASIS"), null),
+        new TCodeEntry("DB02", "Diagnostica database", "diagnostica database sql", "Spazio disco e performance", new ModuleInfo("BASIS", "BASIS"), null)
     };
 
     [Fact]

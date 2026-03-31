@@ -37,7 +37,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _searchDebounce;
     private bool _isExiting;
     private bool _isRefreshingCache;
-    private bool _suppressBoSuggestions;
+    private bool _suppressPrefixSuggestions;
     private bool _programmaticSearchUpdate;
 
     public MainWindow()
@@ -148,7 +148,7 @@ public partial class MainWindow : Window
     {
         if (!_programmaticSearchUpdate)
         {
-            _suppressBoSuggestions = false;
+            _suppressPrefixSuggestions = false;
         }
 
         UpdateSearchHighlight(SearchBox.Text);
@@ -378,9 +378,15 @@ public partial class MainWindow : Window
 
         ResultsHost.Visibility = Visibility.Visible;
 
-        if (!_suppressBoSuggestions && TryParseBoSuggestionQuery(query, out var boPrefix))
+        if (!_suppressPrefixSuggestions && TryParseBoSuggestionQuery(query, out var boPrefix))
         {
             ShowBoSuggestions(boPrefix);
+            return;
+        }
+
+        if (!_suppressPrefixSuggestions && TryParseModuleSuggestionQuery(query, out var modulePrefix))
+        {
+            ShowModuleSuggestions(modulePrefix);
             return;
         }
 
@@ -428,11 +434,55 @@ public partial class MainWindow : Window
         return true;
     }
 
+    private static bool TryParseModuleSuggestionQuery(string query, out string modulePrefix)
+    {
+        modulePrefix = string.Empty;
+        if (string.IsNullOrEmpty(query))
+        {
+            return false;
+        }
+
+        var trimmed = query.Trim();
+        if (!trimmed.StartsWith("module:", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        modulePrefix = trimmed[7..].Trim();
+        return true;
+    }
+
     private void ShowBoSuggestions(string prefix)
     {
         var suggestions = _searchService.GetBusinessObjectSuggestions(prefix)
             .Take(MaxVisibleResults)
             .Select(s => ResultRowViewModel.FromBoSuggestion(s.Code, s.Name, s.TransactionCount, $"bo:{s.Code}"))
+            .ToList();
+
+        _rows.Clear();
+        _detailFacetOptions.Clear();
+        DetailsFacetList.Visibility = Visibility.Collapsed;
+
+        foreach (var row in suggestions)
+        {
+            _rows.Add(row);
+        }
+
+        if (_rows.Count > 0)
+        {
+            ResultsList.SelectedIndex = 0;
+            ResultsList.ScrollIntoView(ResultsList.SelectedItem);
+        }
+
+        DetailsTextBox.Text = string.Empty;
+        DebugTextBox.Text = string.Empty;
+    }
+
+    private void ShowModuleSuggestions(string prefix)
+    {
+        var suggestions = _searchService.GetModuleSuggestions(prefix)
+            .Take(MaxVisibleResults)
+            .Select(s => ResultRowViewModel.FromModuleSuggestion(s.Code, s.Name, s.TransactionCount, $"module:{s.Code}"))
             .ToList();
 
         _rows.Clear();
@@ -605,7 +655,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        _suppressBoSuggestions = true;
+        _suppressPrefixSuggestions = true;
         _programmaticSearchUpdate = true;
         _searchDebounce.Stop();
         SearchBox.Text = facet.Query;
@@ -645,7 +695,7 @@ public partial class MainWindow : Window
 
     private void ApplyBoSuggestionFilter(ResultRowViewModel suggestion)
     {
-        _suppressBoSuggestions = true;
+        _suppressPrefixSuggestions = true;
         _programmaticSearchUpdate = true;
         _searchDebounce.Stop();
         SearchBox.Text = suggestion.SuggestionQuery;
@@ -772,9 +822,11 @@ public partial class MainWindow : Window
         }
 
         _detailFacetOptions.Clear();
-        if (!string.IsNullOrWhiteSpace(selected.Module))
+        if (!string.IsNullOrWhiteSpace(selected.ModuleCode))
         {
-            _detailFacetOptions.Add(new DetailFacetOption($"Module: {selected.Module}", $"module:{selected.Module}"));
+            var moduleLabel = $"Module: {BuildModuleDetailsDisplay(selected.ModuleCode, selected.ModuleName)}";
+
+            _detailFacetOptions.Add(new DetailFacetOption(moduleLabel, $"module:{selected.ModuleCode}"));
         }
 
         if (!string.IsNullOrWhiteSpace(selected.BusinessObjectCode))
@@ -803,10 +855,49 @@ public partial class MainWindow : Window
 
         DetailsTextBox.Text =
             $"Code: {selected.Code}{Environment.NewLine}" +
+            $"Module: {BuildModuleDetailsDisplay(selected.ModuleCode, selected.ModuleName)}{Environment.NewLine}" +
             $"Keywords: {selected.Keywords}{Environment.NewLine}{Environment.NewLine}" +
             selected.LongDescription;
 
         DebugTextBox.Text = $"Debug ({selected.FilterText}): {selected.ScoreDebugText}";
+    }
+
+    private static string BuildModuleDetailsDisplay(string moduleCode, string moduleName)
+    {
+        var code = moduleCode?.Trim() ?? string.Empty;
+        var name = moduleName?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(code) && string.IsNullOrWhiteSpace(name))
+        {
+            return "-";
+        }
+
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return name;
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return code;
+        }
+
+        if (string.Equals(code, name, StringComparison.OrdinalIgnoreCase))
+        {
+            return code;
+        }
+
+        if (name.Contains(code, StringComparison.OrdinalIgnoreCase))
+        {
+            return name;
+        }
+
+        if (code.Contains(name, StringComparison.OrdinalIgnoreCase))
+        {
+            return code;
+        }
+
+        return $"{code} - {name}";
     }
 
     private sealed record DetailFacetOption(string Label, string Query);

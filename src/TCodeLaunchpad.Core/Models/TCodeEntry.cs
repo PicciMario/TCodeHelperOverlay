@@ -1,5 +1,7 @@
 namespace TCodeLaunchpad.Core.Models;
 
+public sealed record ModuleInfo(string Code, string Name);
+
 public sealed record BusinessObject(string Code, string Name);
 
 public sealed record TCodeEntry(
@@ -7,6 +9,6 @@ public sealed record TCodeEntry(
     string Descr,
     string Keywords,
     string LongDescr,
-    string Module,
+    ModuleInfo? Module,
     BusinessObject? BusinessObject
 );

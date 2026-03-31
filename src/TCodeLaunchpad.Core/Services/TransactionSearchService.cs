@@ -37,8 +37,13 @@ public sealed class TransactionSearchService
             return Array.Empty<SearchResult>();
         }
 
+        var filter = module.Trim();
+
         return _dataset
-            .Where(x => x.Module.StartsWith(module, StringComparison.OrdinalIgnoreCase))
+            .Where(x =>
+                x.Module is not null &&
+                (x.Module.Code.StartsWith(filter, StringComparison.OrdinalIgnoreCase)
+                 || x.Module.Name.StartsWith(filter, StringComparison.OrdinalIgnoreCase)))
             .OrderBy(x => x.Code, StringComparer.OrdinalIgnoreCase)
             .Select(x => new SearchResult(x, 0, false))
             .ToList();
@@ -67,6 +72,23 @@ public sealed class TransactionSearchService
             .GroupBy(x => x.BusinessObject!.Code, StringComparer.OrdinalIgnoreCase)
             .Select(g => (g.Key, g.First().BusinessObject!.Name, g.Count()))
             .OrderBy(x => x.Item1, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public IReadOnlyList<(string Code, string Name, int TransactionCount)> GetModuleSuggestions(string prefix)
+    {
+        return _dataset
+            .Where(x => x.Module != null &&
+                        (string.IsNullOrEmpty(prefix) ||
+                         x.Module.Code.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
+                         x.Module.Name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+            .GroupBy(x => x.Module!.Code, StringComparer.OrdinalIgnoreCase)
+            .Select(g =>
+            {
+                var first = g.First().Module!;
+                return (first.Code, first.Name, g.Count());
+            })
+            .OrderBy(x => x.Code, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 }
