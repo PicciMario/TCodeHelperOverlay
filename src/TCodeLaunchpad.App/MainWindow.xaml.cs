@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Documents;
 using System.Windows.Threading;
+using System.Windows.Interop;
 using WinForms = System.Windows.Forms;
 using DrawingPoint = System.Drawing.Point;
 using TCodeLaunchpad.App.Services;
@@ -17,6 +19,10 @@ namespace TCodeLaunchpad.App;
 public partial class MainWindow : Window
 {
     private const int MaxVisibleResults = 15;
+    private const uint MonitorDefaultToNearest = 2;
+    private const int MdtEffectiveDpi = 0;
+    private const uint SwpNoActivate = 0x0010;
+    private const uint SwpNoOwnerZOrder = 0x0200;
 
     private readonly ObservableCollection<ResultRowViewModel> _rows = new();
     private readonly DataCacheService _dataCacheService;
@@ -352,16 +358,22 @@ public partial class MainWindow : Window
     private void ConfigureWindow(DrawingPoint cursorPosition)
     {
         var targetScreen = WinForms.Screen.FromPoint(cursorPosition);
-        var bounds = targetScreen.Bounds;
+        var boundsPx = targetScreen.Bounds;
+        var monitorScale = GetDpiScaleForPoint(cursorPosition);
+        var windowHeightDip = boundsPx.Height / monitorScale;
 
         Topmost = true;
         WindowState = WindowState.Normal;
-        Left = bounds.Left;
-        Top = bounds.Top;
-        Width = bounds.Width;
-        Height = bounds.Height;
 
-        var searchTop = Math.Max(24, Height / 3);
+        if (!TrySetWindowBoundsInPixels(boundsPx))
+        {
+            Left = boundsPx.Left / monitorScale;
+            Top = boundsPx.Top / monitorScale;
+            Width = boundsPx.Width / monitorScale;
+            Height = windowHeightDip;
+        }
+
+        var searchTop = Math.Max(24, windowHeightDip * 0.25);
         SearchHost.Margin = new Thickness(24, searchTop, 24, 24);
 
         const double searchHeight = 42;
@@ -369,6 +381,67 @@ public partial class MainWindow : Window
         const double verticalGap = 14;
         var resultsTop = searchTop + searchHeight + searchHostPaddingVertical + verticalGap;
         ResultsHost.Margin = new Thickness(24, resultsTop, 24, 24);
+    }
+
+    private bool TrySetWindowBoundsInPixels(System.Drawing.Rectangle boundsPx)
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        var ok = SetWindowPos(
+            hwnd,
+            new IntPtr(-1),
+            boundsPx.Left,
+            boundsPx.Top,
+            boundsPx.Width,
+            boundsPx.Height,
+            SwpNoActivate | SwpNoOwnerZOrder);
+
+        return ok;
+    }
+
+    private static double GetDpiScaleForPoint(DrawingPoint point)
+    {
+        var monitor = MonitorFromPoint(new POINT { X = point.X, Y = point.Y }, MonitorDefaultToNearest);
+        if (monitor == IntPtr.Zero)
+        {
+            return 1d;
+        }
+
+        var result = GetDpiForMonitor(monitor, MdtEffectiveDpi, out var dpiX, out _);
+        if (result != 0 || dpiX == 0)
+        {
+            return 1d;
+        }
+
+        return dpiX / 96d;
+    }
+
+    [DllImport("User32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd,
+        IntPtr hWndInsertAfter,
+        int X,
+        int Y,
+        int cx,
+        int cy,
+        uint uFlags);
+
+    [DllImport("User32.dll")]
+    private static extern IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
+
+    [DllImport("Shcore.dll")]
+    private static extern int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct POINT
+    {
+        public int X;
+        public int Y;
     }
 
     private void UpdateDetailsPanel()
@@ -383,6 +456,7 @@ public partial class MainWindow : Window
         DetailsTextBox.Text =
             $"Code: {selected.Code}{Environment.NewLine}" +
             $"Module: {selected.Module}{Environment.NewLine}" +
+            $"Business Object: {(string.IsNullOrWhiteSpace(selected.BusinessObjectName) ? "-" : selected.BusinessObjectName)}{Environment.NewLine}" +
             $"Keywords: {selected.Keywords}{Environment.NewLine}{Environment.NewLine}" +
             selected.LongDescription;
 

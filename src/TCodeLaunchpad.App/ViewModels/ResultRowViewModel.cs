@@ -12,6 +12,8 @@ public sealed class ResultRowViewModel
 
     public required string Module { get; init; }
 
+    public required string BusinessObjectName { get; init; }
+
     public required string Keywords { get; init; }
 
     public required string LongDescription { get; init; }
@@ -28,6 +30,7 @@ public sealed class ResultRowViewModel
             Code = result.Entry.Code,
             Description = result.Entry.Descr,
             Module = result.Entry.Module,
+            BusinessObjectName = result.Entry.BusinessObject?.Name ?? string.Empty,
             Keywords = result.Entry.Keywords,
             LongDescription = result.Entry.LongDescr,
             ScoreDebugText =
