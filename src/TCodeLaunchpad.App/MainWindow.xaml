@@ -52,24 +52,34 @@
             BorderThickness="1"
             Background="#8A081708"
             Padding="20">
-            <TextBox
-                x:Name="SearchBox"
-                TextChanged="SearchBox_TextChanged"
-                PreviewKeyDown="SearchBox_KeyDown"
-                GotKeyboardFocus="SearchBox_GotKeyboardFocus"
-                Height="42"
-                HorizontalAlignment="Stretch"
-                VerticalContentAlignment="Center"
-                FontSize="16"
-                FontFamily="Cascadia Mono,Consolas"
-                Padding="12,6"
-                BorderBrush="#8A69E369"
-                BorderThickness="1"
-                Background="#D4041004"
-                CaretBrush="#E8A8FFA8"
-                SelectionBrush="#AA2A7D2A"
-                Foreground="#F3AEFFAE"
-                ToolTip="Type code, name, or keyword" />
+            <Grid>
+                <TextBox
+                    x:Name="SearchBox"
+                    TextChanged="SearchBox_TextChanged"
+                    PreviewKeyDown="SearchBox_KeyDown"
+                    GotKeyboardFocus="SearchBox_GotKeyboardFocus"
+                    Height="42"
+                    HorizontalAlignment="Stretch"
+                    VerticalContentAlignment="Center"
+                    FontSize="16"
+                    FontFamily="Cascadia Mono,Consolas"
+                    Padding="12,6"
+                    BorderBrush="#8A69E369"
+                    BorderThickness="1"
+                    Background="#D4041004"
+                    CaretBrush="#E8A8FFA8"
+                    SelectionBrush="#AA2A7D2A"
+                    Foreground="#F3AEFFAE"
+                    ToolTip="Type code, name, or keyword" />
+                <TextBlock
+                    x:Name="SearchBoxHighlight"
+                    IsHitTestVisible="False"
+                    Visibility="Collapsed"
+                    Margin="13,0,0,0"
+                    VerticalAlignment="Center"
+                    FontSize="16"
+                    FontFamily="Cascadia Mono,Consolas" />
+            </Grid>
         </Border>
 
         <Border
@@ -221,17 +231,23 @@
                                 <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsSelected}" Value="True">
                                     <Setter TargetName="RowGlowBorder" Property="BorderBrush" Value="#FF7FFF7F" />
                                     <Setter TargetName="RowGlowBorder" Property="Background" Value="#5A1D6B1D" />
-                                    <DataTrigger.EnterActions>
+                                </DataTrigger>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsSelected}" Value="True" />
+                                        <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBox}, Path=IsKeyboardFocusWithin}" Value="True" />
+                                    </MultiDataTrigger.Conditions>
+                                    <MultiDataTrigger.EnterActions>
                                         <BeginStoryboard Name="SelectionPulseStoryboard">
                                             <Storyboard RepeatBehavior="Forever" AutoReverse="True">
                                                 <DoubleAnimation Storyboard.TargetName="RowGlowBorder" Storyboard.TargetProperty="Opacity" From="0.45" To="1" Duration="0:0:0.5" />
                                             </Storyboard>
                                         </BeginStoryboard>
-                                    </DataTrigger.EnterActions>
-                                    <DataTrigger.ExitActions>
+                                    </MultiDataTrigger.EnterActions>
+                                    <MultiDataTrigger.ExitActions>
                                         <StopStoryboard BeginStoryboardName="SelectionPulseStoryboard" />
-                                    </DataTrigger.ExitActions>
-                                </DataTrigger>
+                                    </MultiDataTrigger.ExitActions>
+                                </MultiDataTrigger>
                             </DataTemplate.Triggers>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -241,13 +257,94 @@
 
                 <Grid Grid.Column="2">
                     <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
+                    <ListBox
+                        x:Name="DetailsFacetList"
+                        Grid.Row="0"
+                        PreviewKeyDown="DetailsFacetList_KeyDown"
+                        BorderThickness="0"
+                        Background="Transparent"
+                        Foreground="#EAAEFFAE"
+                        FontFamily="Cascadia Mono,Consolas"
+                        FontSize="12"
+                        Margin="10,4,10,2"
+                        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                        ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                        Visibility="Collapsed">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Vertical" />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Setter Property="Margin" Value="0,1" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border
+                                                Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter />
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Border
+                                    x:Name="FacetGlowBorder"
+                                    Margin="4,2"
+                                    Padding="8,4"
+                                    CornerRadius="4"
+                                    BorderThickness="1"
+                                    BorderBrush="#665FC15F"
+                                    Background="#00000000"
+                                    Opacity="1">
+                                    <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                                </Border>
+
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsSelected}" Value="True">
+                                        <Setter TargetName="FacetGlowBorder" Property="BorderBrush" Value="#FF7FFF7F" />
+                                        <Setter TargetName="FacetGlowBorder" Property="Background" Value="#5A1D6B1D" />
+                                    </DataTrigger>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=IsSelected}" Value="True" />
+                                            <Condition Binding="{Binding RelativeSource={RelativeSource AncestorType=ListBox}, Path=IsKeyboardFocusWithin}" Value="True" />
+                                        </MultiDataTrigger.Conditions>
+                                        <MultiDataTrigger.EnterActions>
+                                            <BeginStoryboard Name="FacetSelectionPulseStoryboard">
+                                                <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                    <DoubleAnimation Storyboard.TargetName="FacetGlowBorder" Storyboard.TargetProperty="Opacity" From="0.45" To="1" Duration="0:0:0.5" />
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </MultiDataTrigger.EnterActions>
+                                        <MultiDataTrigger.ExitActions>
+                                            <StopStoryboard BeginStoryboardName="FacetSelectionPulseStoryboard" />
+                                        </MultiDataTrigger.ExitActions>
+                                    </MultiDataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
                     <TextBox
                         x:Name="DetailsTextBox"
-                        Grid.Row="0"
+                        Grid.Row="1"
                         PreviewKeyDown="DetailsTextBox_KeyDown"
                         IsReadOnly="True"
                         TextWrapping="Wrap"
@@ -263,7 +360,7 @@
 
                     <TextBox
                         x:Name="DebugTextBox"
-                        Grid.Row="1"
+                        Grid.Row="2"
                         PreviewKeyDown="DetailsTextBox_KeyDown"
                         IsReadOnly="True"
                         TextWrapping="Wrap"

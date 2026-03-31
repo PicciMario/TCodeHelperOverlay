@@ -24,7 +24,12 @@ public partial class MainWindow : Window
     private const uint SwpNoActivate = 0x0010;
     private const uint SwpNoOwnerZOrder = 0x0200;
 
+    private static readonly System.Windows.Media.Brush SearchNormalForeground = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#F3AEFFAE")!);
+    private static readonly System.Windows.Media.Brush BoPrefixBrush = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#FF80CCFF")!);
+    private static readonly System.Windows.Media.Brush ModulePrefixBrush = new System.Windows.Media.SolidColorBrush((System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString("#FFFFD080")!);
+
     private readonly ObservableCollection<ResultRowViewModel> _rows = new();
+    private readonly ObservableCollection<DetailFacetOption> _detailFacetOptions = new();
     private readonly DataCacheService _dataCacheService;
     private readonly TransactionSearchService _searchService;
     private GlobalHotkeyService? _hotkeyService;
@@ -32,6 +37,8 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _searchDebounce;
     private bool _isExiting;
     private bool _isRefreshingCache;
+    private bool _suppressBoSuggestions;
+    private bool _programmaticSearchUpdate;
 
     public MainWindow()
     {
@@ -40,6 +47,7 @@ public partial class MainWindow : Window
         TryEnableBlur();
 
         ResultsList.ItemsSource = _rows;
+        DetailsFacetList.ItemsSource = _detailFacetOptions;
 
         var searchOptions = new SearchOptions();
         _dataCacheService = new DataCacheService();
@@ -138,8 +146,60 @@ public partial class MainWindow : Window
 
     private void SearchBox_TextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
     {
+        if (!_programmaticSearchUpdate)
+        {
+            _suppressBoSuggestions = false;
+        }
+
+        UpdateSearchHighlight(SearchBox.Text);
         _searchDebounce.Stop();
         _searchDebounce.Start();
+    }
+
+    private void UpdateSearchHighlight(string text)
+    {
+        if (TryGetPrefixForHighlight(text, out var prefix, out var value, out var filterType))
+        {
+            SearchBox.Foreground = System.Windows.Media.Brushes.Transparent;
+            SearchBoxHighlight.Visibility = Visibility.Visible;
+            SearchBoxHighlight.Inlines.Clear();
+            var prefixBrush = filterType == "bo" ? BoPrefixBrush : ModulePrefixBrush;
+            SearchBoxHighlight.Inlines.Add(new Run(prefix) { Foreground = prefixBrush });
+            SearchBoxHighlight.Inlines.Add(new Run(value) { Foreground = SearchNormalForeground });
+        }
+        else
+        {
+            SearchBox.Foreground = SearchNormalForeground;
+            SearchBoxHighlight.Visibility = Visibility.Collapsed;
+            SearchBoxHighlight.Inlines.Clear();
+        }
+    }
+
+    private static bool TryGetPrefixForHighlight(string text, out string prefix, out string value, out string filterType)
+    {
+        prefix = value = filterType = string.Empty;
+        if (string.IsNullOrEmpty(text))
+        {
+            return false;
+        }
+
+        if (text.StartsWith("bo:", StringComparison.OrdinalIgnoreCase))
+        {
+            prefix = text[..3];
+            value = text[3..];
+            filterType = "bo";
+            return true;
+        }
+
+        if (text.StartsWith("module:", StringComparison.OrdinalIgnoreCase))
+        {
+            prefix = text[..7];
+            value = text[7..];
+            filterType = "module";
+            return true;
+        }
+
+        return false;
     }
 
     private void SearchBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -212,6 +272,13 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (e.Key == Key.Right)
+        {
+            FocusDetailsFacetList();
+            e.Handled = true;
+            return;
+        }
+
         if (e.Key == Key.Escape)
         {
             HideLauncher();
@@ -224,6 +291,64 @@ public partial class MainWindow : Window
         if (e.Key == Key.Tab)
         {
             FocusSearchBoxForReplace();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Right)
+        {
+            FocusDetailsFacetList();
+            e.Handled = true;
+        }
+    }
+
+    private void DetailsFacetList_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key == Key.Tab)
+        {
+            FocusSearchBoxForReplace();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Enter)
+        {
+            ApplyRelatedFilterFromSelectedFacet();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Down)
+        {
+            MoveFacetSelection(1);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Up)
+        {
+            MoveFacetSelection(-1);
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Left)
+        {
+            EnsureListFocus();
+            FocusSelectedResultItem();
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Right)
+        {
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key == Key.Escape)
+        {
+            HideLauncher();
             e.Handled = true;
         }
     }
@@ -243,6 +368,8 @@ public partial class MainWindow : Window
         if (string.IsNullOrWhiteSpace(query))
         {
             _rows.Clear();
+            _detailFacetOptions.Clear();
+            DetailsFacetList.Visibility = Visibility.Collapsed;
             DetailsTextBox.Text = string.Empty;
             DebugTextBox.Text = string.Empty;
             ResultsHost.Visibility = Visibility.Collapsed;
@@ -251,7 +378,13 @@ public partial class MainWindow : Window
 
         ResultsHost.Visibility = Visibility.Visible;
 
-        var results = _searchService.Search(query)
+        if (!_suppressBoSuggestions && TryParseBoSuggestionQuery(query, out var boPrefix))
+        {
+            ShowBoSuggestions(boPrefix);
+            return;
+        }
+
+        var results = ResolveResults(query)
             .Take(MaxVisibleResults)
             .Select(result => ResultRowViewModel.FromSearchResult(result, query))
             .ToList();
@@ -270,9 +403,104 @@ public partial class MainWindow : Window
         }
         else
         {
+            _detailFacetOptions.Clear();
+            DetailsFacetList.Visibility = Visibility.Collapsed;
             DetailsTextBox.Text = string.Empty;
             DebugTextBox.Text = string.Empty;
         }
+    }
+
+    private static bool TryParseBoSuggestionQuery(string query, out string boPrefix)
+    {
+        boPrefix = string.Empty;
+        if (string.IsNullOrEmpty(query))
+        {
+            return false;
+        }
+
+        var trimmed = query.Trim();
+        if (!trimmed.StartsWith("bo:", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        boPrefix = trimmed[3..].Trim();
+        return true;
+    }
+
+    private void ShowBoSuggestions(string prefix)
+    {
+        var suggestions = _searchService.GetBusinessObjectSuggestions(prefix)
+            .Take(MaxVisibleResults)
+            .Select(s => ResultRowViewModel.FromBoSuggestion(s.Code, s.Name, s.TransactionCount, $"bo:{s.Code}"))
+            .ToList();
+
+        _rows.Clear();
+        _detailFacetOptions.Clear();
+        DetailsFacetList.Visibility = Visibility.Collapsed;
+
+        foreach (var row in suggestions)
+        {
+            _rows.Add(row);
+        }
+
+        if (_rows.Count > 0)
+        {
+            ResultsList.SelectedIndex = 0;
+            ResultsList.ScrollIntoView(ResultsList.SelectedItem);
+        }
+
+        DetailsTextBox.Text = string.Empty;
+        DebugTextBox.Text = string.Empty;
+    }
+
+    private IReadOnlyList<SearchResult> ResolveResults(string query)
+    {
+        if (!TryParseRelatedFilterQuery(query, out var filterType, out var filterValue))
+        {
+            return _searchService.Search(query);
+        }
+
+        return filterType switch
+        {
+            "module" => _searchService.SearchByModule(filterValue),
+            "bo" => _searchService.SearchByBusinessObjectCode(filterValue),
+            _ => _searchService.Search(query)
+        };
+    }
+
+    private static bool TryParseRelatedFilterQuery(string query, out string filterType, out string filterValue)
+    {
+        filterType = string.Empty;
+        filterValue = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            return false;
+        }
+
+        var trimmed = query.Trim();
+        var separatorIndex = trimmed.IndexOf(':');
+        if (separatorIndex <= 0)
+        {
+            return false;
+        }
+
+        var key = trimmed[..separatorIndex].Trim().ToLowerInvariant();
+        var value = trimmed[(separatorIndex + 1)..].Trim();
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        if (key is "module" or "bo")
+        {
+            filterType = key;
+            filterValue = value;
+            return true;
+        }
+
+        return false;
     }
 
     private void MoveSelection(int delta)
@@ -330,6 +558,65 @@ public partial class MainWindow : Window
         SearchBox.SelectAll();
     }
 
+    private void FocusDetailsFacetList()
+    {
+        if (_detailFacetOptions.Count == 0)
+        {
+            return;
+        }
+
+        if (DetailsFacetList.SelectedIndex < 0)
+        {
+            DetailsFacetList.SelectedIndex = 0;
+        }
+
+        DetailsFacetList.Focus();
+        DetailsFacetList.UpdateLayout();
+
+        if (DetailsFacetList.ItemContainerGenerator.ContainerFromIndex(DetailsFacetList.SelectedIndex) is System.Windows.Controls.ListBoxItem item)
+        {
+            item.Focus();
+            Keyboard.Focus(item);
+        }
+    }
+
+    private void MoveFacetSelection(int delta)
+    {
+        if (_detailFacetOptions.Count == 0)
+        {
+            return;
+        }
+
+        var current = DetailsFacetList.SelectedIndex;
+        if (current < 0)
+        {
+            DetailsFacetList.SelectedIndex = delta > 0 ? 0 : _detailFacetOptions.Count - 1;
+            return;
+        }
+
+        var next = Math.Clamp(current + delta, 0, _detailFacetOptions.Count - 1);
+        DetailsFacetList.SelectedIndex = next;
+    }
+
+    private void ApplyRelatedFilterFromSelectedFacet()
+    {
+        if (DetailsFacetList.SelectedItem is not DetailFacetOption facet)
+        {
+            return;
+        }
+
+        _suppressBoSuggestions = true;
+        _programmaticSearchUpdate = true;
+        _searchDebounce.Stop();
+        SearchBox.Text = facet.Query;
+        SearchBox.CaretIndex = SearchBox.Text.Length;
+        _programmaticSearchUpdate = false;
+        UpdateSearchHighlight(SearchBox.Text);
+        ApplySearch(SearchBox.Text);
+        EnsureListFocus();
+        FocusSelectedResultItem();
+    }
+
     private void CopyCurrentSelection()
     {
         var row = ResultsList.SelectedItem as ResultRowViewModel;
@@ -343,11 +630,31 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (row.IsSuggestion)
+        {
+            ApplyBoSuggestionFilter(row);
+            return;
+        }
+
         var clipboardValue = $"/n{row.Code}";
         System.Windows.Clipboard.SetText(clipboardValue);
 
         HideLauncher();
         _trayIconService.ShowToast($"Code {row.Code} copied in the clipboard");
+    }
+
+    private void ApplyBoSuggestionFilter(ResultRowViewModel suggestion)
+    {
+        _suppressBoSuggestions = true;
+        _programmaticSearchUpdate = true;
+        _searchDebounce.Stop();
+        SearchBox.Text = suggestion.SuggestionQuery;
+        SearchBox.CaretIndex = SearchBox.Text.Length;
+        _programmaticSearchUpdate = false;
+        UpdateSearchHighlight(SearchBox.Text);
+        ApplySearch(SearchBox.Text);
+        EnsureListFocus();
+        FocusSelectedResultItem();
     }
 
     private void ConfigureWindow()
@@ -448,20 +755,61 @@ public partial class MainWindow : Window
     {
         if (ResultsList.SelectedItem is not ResultRowViewModel selected)
         {
+            _detailFacetOptions.Clear();
+            DetailsFacetList.Visibility = Visibility.Collapsed;
             DetailsTextBox.Text = string.Empty;
             DebugTextBox.Text = string.Empty;
             return;
         }
 
+        if (selected.IsSuggestion)
+        {
+            _detailFacetOptions.Clear();
+            DetailsFacetList.Visibility = Visibility.Collapsed;
+            DetailsTextBox.Text = string.Empty;
+            DebugTextBox.Text = string.Empty;
+            return;
+        }
+
+        _detailFacetOptions.Clear();
+        if (!string.IsNullOrWhiteSpace(selected.Module))
+        {
+            _detailFacetOptions.Add(new DetailFacetOption($"Module: {selected.Module}", $"module:{selected.Module}"));
+        }
+
+        if (!string.IsNullOrWhiteSpace(selected.BusinessObjectCode))
+        {
+            var businessObjectLabel = $"BO: {selected.BusinessObjectCode}";
+            if (!string.IsNullOrWhiteSpace(selected.BusinessObjectName))
+            {
+                businessObjectLabel += $" ({selected.BusinessObjectName})";
+            }
+
+            _detailFacetOptions.Add(new DetailFacetOption(businessObjectLabel, $"bo:{selected.BusinessObjectCode}"));
+        }
+
+        if (_detailFacetOptions.Count > 0)
+        {
+            DetailsFacetList.Visibility = Visibility.Visible;
+            if (DetailsFacetList.SelectedIndex < 0 || DetailsFacetList.SelectedIndex >= _detailFacetOptions.Count)
+            {
+                DetailsFacetList.SelectedIndex = 0;
+            }
+        }
+        else
+        {
+            DetailsFacetList.Visibility = Visibility.Collapsed;
+        }
+
         DetailsTextBox.Text =
             $"Code: {selected.Code}{Environment.NewLine}" +
-            $"Module: {selected.Module}{Environment.NewLine}" +
-            $"Business Object: {(string.IsNullOrWhiteSpace(selected.BusinessObjectName) ? "-" : selected.BusinessObjectName)}{Environment.NewLine}" +
             $"Keywords: {selected.Keywords}{Environment.NewLine}{Environment.NewLine}" +
             selected.LongDescription;
 
         DebugTextBox.Text = $"Debug ({selected.FilterText}): {selected.ScoreDebugText}";
     }
+
+    private sealed record DetailFacetOption(string Label, string Query);
 
     private void TryEnableBlur()
     {

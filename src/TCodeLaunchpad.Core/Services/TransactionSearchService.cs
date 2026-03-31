@@ -29,4 +29,44 @@ public sealed class TransactionSearchService
     {
         return _searchEngine.Search(_dataset, query);
     }
+
+    public IReadOnlyList<SearchResult> SearchByModule(string module)
+    {
+        if (string.IsNullOrWhiteSpace(module))
+        {
+            return Array.Empty<SearchResult>();
+        }
+
+        return _dataset
+            .Where(x => x.Module.StartsWith(module, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(x => x.Code, StringComparer.OrdinalIgnoreCase)
+            .Select(x => new SearchResult(x, 0, false))
+            .ToList();
+    }
+
+    public IReadOnlyList<SearchResult> SearchByBusinessObjectCode(string businessObjectCode)
+    {
+        if (string.IsNullOrWhiteSpace(businessObjectCode))
+        {
+            return Array.Empty<SearchResult>();
+        }
+
+        return _dataset
+            .Where(x => x.BusinessObject?.Code.StartsWith(businessObjectCode, StringComparison.OrdinalIgnoreCase) == true)
+            .OrderBy(x => x.Code, StringComparer.OrdinalIgnoreCase)
+            .Select(x => new SearchResult(x, 0, false))
+            .ToList();
+    }
+
+    public IReadOnlyList<(string Code, string Name, int TransactionCount)> GetBusinessObjectSuggestions(string prefix)
+    {
+        return _dataset
+            .Where(x => x.BusinessObject != null &&
+                        (string.IsNullOrEmpty(prefix) ||
+                         x.BusinessObject.Code.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+            .GroupBy(x => x.BusinessObject!.Code, StringComparer.OrdinalIgnoreCase)
+            .Select(g => (g.Key, g.First().BusinessObject!.Name, g.Count()))
+            .OrderBy(x => x.Item1, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
 }
