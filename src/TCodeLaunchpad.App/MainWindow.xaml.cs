@@ -919,7 +919,7 @@ public partial class MainWindow : Window
         {
             var cacheStatus = await _dataCacheService.EnsureFreshAsync(forceRefresh);
 
-            if (cacheStatus.DownloadSucceeded || _searchService.Count == 0)
+            if (forceRefresh || cacheStatus.DownloadSucceeded || _searchService.Count == 0)
             {
                 _searchService.Reload();
                 ApplySearch(SearchBox.Text);

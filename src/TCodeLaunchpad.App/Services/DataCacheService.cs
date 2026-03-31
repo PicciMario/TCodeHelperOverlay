@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.IO;
 using System.Net.Http;
+using System.Net.Http.Headers;
 
 namespace TCodeLaunchpad.App.Services;
 
@@ -53,7 +54,7 @@ public sealed class DataCacheService
             if (needsDownload)
             {
                 downloadAttempted = true;
-                downloadSucceeded = await TryDownloadCacheFileAsync(cancellationToken).ConfigureAwait(false);
+                downloadSucceeded = await TryDownloadCacheFileAsync(forceRefresh, cancellationToken).ConfigureAwait(false);
                 if (downloadSucceeded)
                 {
                     downloadedAtUtc = ReadDownloadTimestampUtc();
@@ -88,12 +89,28 @@ public sealed class DataCacheService
         }
     }
 
-    private async Task<bool> TryDownloadCacheFileAsync(CancellationToken cancellationToken)
+    private async Task<bool> TryDownloadCacheFileAsync(bool forceRefresh, CancellationToken cancellationToken)
     {
         var tempPath = Path.Combine(_cacheDirectory, $"data.{Guid.NewGuid():N}.tmp");
         try
         {
-            using var response = await HttpClient.GetAsync(RemoteDataUrl, cancellationToken);
+            var requestUrl = forceRefresh
+                ? $"{RemoteDataUrl}?nocache={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}"
+                : RemoteDataUrl;
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, requestUrl);
+            if (forceRefresh)
+            {
+                request.Headers.CacheControl = new CacheControlHeaderValue
+                {
+                    NoCache = true,
+                    NoStore = true,
+                    MaxAge = TimeSpan.Zero
+                };
+                request.Headers.Pragma.ParseAdd("no-cache");
+            }
+
+            using var response = await HttpClient.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 return false;
